@@ -13,7 +13,10 @@ COPY . .
 RUN npm ci
 RUN hugo ${HUGO_BUILD_ARGS}
 
-RUN npx --no-install pagefind --site public --glob "items/*/index.html"
+# Build the Pagefind search index over the whole site so documents
+# (/document/*), guides (/*), and news (/news/*) are all searchable. The
+# earlier `--glob "items/*/index.html"` matched nothing this site emits.
+RUN npx --no-install pagefind --site public
 
 FROM stagex/user-caddy
 
