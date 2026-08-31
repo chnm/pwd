@@ -1,49 +1,48 @@
-# Use Alpine Linux as base image for smaller size
-FROM alpine:3.23 AS build-stage
+# syntax=docker/dockerfile:1.7
+
+FROM stagex/pallet-nodejs AS build-stage
+
+COPY --from=stagex/user-hugo-extended /usr/bin/hugo/hugo_exended /usr/local/bin/hugo
 
 ARG hugobuildargs
 ENV HUGO_BUILD_ARGS=$hugobuildargs
 
-# Set Hugo version - update this to the latest version
-ENV HUGO_VERSION=0.154.5
-ENV HUGO_BINARY=hugo_extended_${HUGO_VERSION}_Linux-64bit.tar.gz
-
-# Install Hugo and dependencies
-RUN apk add --no-cache \
-    wget \
-    ca-certificates \
-    gcompat \
-    libstdc++ && \
-    ARCH=$(uname -m) && \
-    case ${ARCH} in \
-        x86_64) HUGO_ARCH="Linux-64bit" ;; \
-        aarch64) HUGO_ARCH="Linux-ARM64" ;; \
-        armv7l) HUGO_ARCH="Linux-ARM" ;; \
-        *) echo "Unsupported architecture: ${ARCH}" && exit 1 ;; \
-    esac && \
-    HUGO_BINARY=hugo_extended_${HUGO_VERSION}_${HUGO_ARCH}.tar.gz && \
-    wget https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/${HUGO_BINARY} && \
-    tar xzf ${HUGO_BINARY} && \
-    mv hugo /usr/local/bin/hugo && \
-    rm ${HUGO_BINARY} && \
-    apk del wget
-
-RUN hugo version
-
-# Set working directory
 WORKDIR /app
+COPY . .
 
-# Copy all project files first
-ADD . .
-
-# Build the site with Hugo
+RUN npm ci
 RUN hugo ${HUGO_BUILD_ARGS}
 
-FROM nginx:1.23-alpine
+RUN npx --no-install pagefind --site public --glob "items/*/index.html"
 
-COPY --from=build-stage /app/public/ /usr/share/nginx/html
+FROM stagex/user-caddy
 
-# Create symlink from /img to /assets/img for backward compatibility with markdown image paths
-RUN ln -s /usr/share/nginx/html/assets/img /usr/share/nginx/html/img
+COPY --from=stagex/core-musl / /
+COPY --from=build-stage /app/public /srv
+COPY --from=build-stage /app/redirects.caddy /srv/redirects.caddy
 
+COPY <<'EOF' /etc/caddy/Caddyfile
+{
+	auto_https off
+	admin off
+}
 
+:80 {
+	root * /srv
+	encode gzip zstd
+
+	# Legacy Omeka URL redirects (301s). Kept first so they win before
+	# file_server. /files/* is intentionally absent — the fronting web
+	# server redirects /files/* to the object-storage bucket.
+	import /srv/redirects.caddy
+
+	file_server
+}
+EOF
+
+ENV XDG_CONFIG_HOME=/tmp/caddy-config \
+    XDG_DATA_HOME=/tmp/caddy-data
+
+EXPOSE 80
+ENTRYPOINT ["/usr/bin/caddy"]
+CMD ["run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
