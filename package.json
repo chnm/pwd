@@ -1,0 +1,10 @@
+{
+  "name": "pwd-hugo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Papers of the War Department — Hugo static site. Node tooling builds the Pagefind search index (see Dockerfile / justfile).",
+  "license": "MIT",
+  "dependencies": {
+    "pagefind": "^1.5.2"
+  }
+}

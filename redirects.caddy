@@ -1,0 +1,51 @@
+# redirects.caddy — legacy Omeka S URL -> native Hugo path (301).
+#
+# The Papers of the War Department site was migrated from Omeka S to this Hugo
+# static site. Externally linked and search-indexed URLs from the Omeka S site
+# used the `/s/home/...` path prefix (site slug = "home"); this fragment 301s
+# them to their new Hugo homes. Imported into the site's Caddy block at deploy
+# time (see the Dockerfile: `import /srv/redirects.caddy`).
+#
+# Mapping is deterministic and regex-based, following the reference fragment in
+# chnm/911digitalarchive. Caddy's `map` keys on {path} only (query strings are
+# ignored), and matching is FIRST-match-wins, so specific keys are listed before
+# the generic catch-alls. Each key also tolerates a trailing slash and the
+# optional `.html` suffix left by wget-mirrored copies.
+#
+# /files/* -> object storage is handled by the fronting web server, not here.
+map {path} {redirect_target} {
+	default ""
+
+	# Omeka S site root -> Hugo homepage
+	~^/s/home(?:\.html)?/?$                          /
+	~^/s/home/page/home(?:\.html)?/?$                /
+
+	# Omeka S "collection" landing page -> collections taxonomy index
+	~^/s/home/page/collection(?:\.html)?/?$          /collections/
+
+	# Omeka S item pages -> Hugo document pages (filename == omeka_id).
+	# Non-document items (Image/Name/Microfilm/Publication) were dropped in the
+	# migration; those ids 301 to a nonexistent /document/{id}/ and then 404,
+	# which is the intended behavior (see SPEC.md — removed types 404).
+	~^/s/home/item/([0-9]+)(?:\.html)?/?$            /document/${1}/
+
+	# Omeka S item-set pages -> collections index. Hugo collections and
+	# repositories are slug-keyed taxonomies, not id-keyed pages, so an
+	# id->slug regex isn't possible; land users on the browse index instead.
+	~^/s/home/item-set/([0-9]+)(?:\.html)?/?$        /collections/
+
+	# Omeka S editorial pages -> Hugo top-level pages (slug preserved 1:1).
+	~^/s/home/page/([a-zA-Z0-9_-]+)(?:\.html)?/?$    /${1}/
+
+	# Omeka S browse / search landing pages
+	~^/s/home/item(?:\.html)?/?$                     /document/
+	~^/s/home/item-set(?:\.html)?/?$                 /collections/
+	~^/s/home/search(?:\.html)?/?$                   /search/
+
+	# Internal-link shims: editorial page HTML was rewritten to /item/{id}/ and
+	# /item-set/{id}/, which are not real Hugo routes — redirect them too.
+	~^/item/([0-9]+)(?:\.html)?/?$                   /document/${1}/
+	~^/item-set/([0-9]+)(?:\.html)?/?$               /collections/
+}
+@hasRedirect expression `{redirect_target} != ""`
+redir @hasRedirect {redirect_target} 301
