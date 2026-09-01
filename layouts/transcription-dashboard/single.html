@@ -4,7 +4,7 @@
 {{ $stats := $d.stats }}
 <div class="blocks">
     <h2>Transcription Dashboard</h2>
-    <p class="dash-subtitle">Overview of human and machine transcription coverage across {{ $stats.total | lang.FormatNumber 0 }} documents.</p>
+    <p class="dash-subtitle">Overview of human and machine transcription coverage across {{ $stats.total | lang.FormatNumber 0 }} documents. You can read more about our <a href="/transcription-methodology/">machine transcription methodology</a>.</p>
 
     {{/* Summary cards */}}
     <div class="dash-summary">
@@ -15,10 +15,12 @@
         <div class="dash-card dash-card-human">
             <span class="dash-card-number">{{ $stats.human_only | lang.FormatNumber 0 }}</span>
             <span class="dash-card-label">Human only</span>
+            <span class="dash-card-total">{{ add $stats.human_only $stats.both | lang.FormatNumber 0 }} total human transcriptions</span>
         </div>
         <div class="dash-card dash-card-ai">
             <span class="dash-card-number">{{ $stats.ai_only | lang.FormatNumber 0 }}</span>
             <span class="dash-card-label">Machine only</span>
+            <span class="dash-card-total">{{ add $stats.ai_only $stats.both | lang.FormatNumber 0 }} total machine transcriptions</span>
         </div>
         <div class="dash-card dash-card-neither">
             <span class="dash-card-number">{{ $stats.neither | lang.FormatNumber 0 }}</span>
