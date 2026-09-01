@@ -1,5 +1,5 @@
 baseURL = "https://wardepartmentpapers.org/"
-languageCode = "en-us"
+locale = "en-US"
 title = "Papers of the War Department"
 staticDir = ["static"]
 

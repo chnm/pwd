@@ -1,6 +1,6 @@
 {{ define "bodyclass" }}page transcription-dashboard{{ end }}
 {{ define "main" }}
-{{ $d := site.Data.transcription_dashboard }}
+{{ $d := hugo.Data.transcription_dashboard }}
 {{ $stats := $d.stats }}
 <div class="blocks">
     <h2>Transcription Dashboard</h2>
