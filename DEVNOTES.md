@@ -6,32 +6,13 @@ Development notes and deployment TODOs for the PWD Hugo site.
 
 ## Deployment: URL Redirects
 
-The original Omeka S site used URLs like `/s/home/item/{id}`. These are no longer generated as Hugo aliases. Instead, handle redirects at the web server level.
-
-Example nginx config:
-
-```nginx
-# Redirect old Omeka item URLs to Hugo content pages.
-# Documents are the vast majority of items (IDs roughly 36000-79999),
-# but collections and repositories share the same ID space.
-# A catch-all that tries document first covers most cases.
-
-location ~ ^/s/home/item/(\d+)$ {
-    return 301 /document/$1/;
-}
-
-location ~ ^/item/(\d+)$ {
-    return 301 /document/$1/;
-}
-```
-
-If finer-grained routing is needed (e.g., redirecting collection/repository IDs to their correct content type), a map block or try_files approach could check each path. In practice, most old bookmarked URLs are documents.
+The original Omeka S site used URLs like `/s/home/item/{id}` and `/s/home/page/{slug}`. These are not Hugo aliases; they are 301'd by the regex `map` in `redirects.caddy`, which the `Dockerfile` imports into the Caddy config. Editorial pages and news posts still keep their own `aliases:` in frontmatter.
 
 ---
 
 ## Deployment: Media Files / CDN
 
-Currently media files (document images) are not included in the Hugo build (`static-media` removed from `staticDir`). Long-term plan:
+Media files (document images) are not part of the Hugo build. This is now implemented (`mediaBaseURL = https://obj.rrchnm.org/wardepartmentpapers.org` in `hugo.toml`):
 
 - Host media files on object storage (MinIO, S3, or similar CDN)
 - Set a site param in `hugo.toml` like `[params] mediaBaseURL = "https://cdn.example.com/pwd-media"`
@@ -99,3 +80,8 @@ Operational notes:
   but the `claude -p` pipeline writes `_transcription/transcriptions.json`. Merge
   the latter into the former before building, or the new transcriptions won't
   appear on the site.
+- **Stragglers** — the run is complete; ~12,300 docs remain untranscribed and
+  that is expected (no usable images, content-filter refusals, or page caps).
+  Candidates: `_transcription/big_doc_ids.txt`, `skip_ids.txt`, `failures.csv`.
+  To retry, use `_transcription/run_loop.sh`, merge the output as above, then
+  rebuild the dashboard: `uv run python3 scripts/build_transcription_dashboard.py`.

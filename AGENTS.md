@@ -1,83 +1,42 @@
 # AGENTS.md
 
-> For feature specifications, business rules, and domain models, see [SPEC.md](./SPEC.md).
-
----
-
-## Table of Contents
-
-- [Project Overview](#project-overview)
-- [Tech Stack](#tech-stack)
-- [Project Initialization](#project-initialization)
-- [Project Structure](#project-structure)
-- [Architecture](#architecture)
-  - [Data Pipeline](#data-pipeline)
-  - [Template Dispatch](#template-dispatch)
-  - [Omeka S API Reference](#omeka-s-api-reference)
-- [Development Workflow](#development-workflow)
-  - [Fetching Content](#fetching-content)
-  - [Building the Site](#building-the-site)
-  - [Serving Locally](#serving-locally)
-- [Best Practices & Key Conventions](#best-practices--key-conventions)
-- [Notes for AI Agents](#notes-for-ai-agents)
+> For feature specifications and domain rules, see [SPEC.md](./SPEC.md). For the human-facing overview, see [README.md](./README.md).
 
 ---
 
 ## Project Overview
 
-Static Hugo site conversion of the Papers of the War Department (wardepartmentpapers.org), an Omeka S digital humanities archive. Uses a Hugo-native architecture with 3 content types (Document, Collection, Repository) and 7 taxonomies. Content is pulled from the live Omeka S REST API and rendered as static HTML. The site requires no database or application server.
+Static Hugo site for the Papers of the War Department (wardepartmentpapers.org), migrated from an Omeka S archive. The repository root **is** the Hugo project root. It was relocated from the `chnm/sustainability` monorepo (where it lived under `pwd/`) to its own repository in September 2026; older commit messages still reference the monorepo. There is no `hugo/` subdirectory and no wget'd copy of the old site in this repo.
+
+The site has one item content type (Document) plus editorial pages and news posts, six taxonomies, Pagefind search, and a complete set of AI transcriptions. It needs no database or application server; media is served from object storage.
 
 ---
 
 ## Tech Stack
 
-### Static Site Generator
-- **Hugo** v0.128.0+ (extended edition, with deploy support)
-- Configuration: `hugo/hugo.toml`
-- Requires `markup.goldmark.renderer.unsafe = true` for raw HTML content
-- Uses `pagination.pagerSize` (not deprecated `paginate`)
-
-### Data Extraction Scripts
-- **Python 3** with `requests`, `beautifulsoup4`, `pyyaml`, `markdownify`
-- Dependencies listed in `hugo/scripts/requirements.txt`
-- Scripts fetch data from Omeka S REST API at `https://www.wardepartmentpapers.org/api/`
-
-### Build Orchestration
-- **GNU Make** via `hugo/Makefile`
-
-### Search (Planned)
-- **Pagefind** — post-build static search indexer
+- **Hugo** extended v0.128.0+ (currently built with v0.164). Config: `hugo.toml` (+ `config/development/hugo.toml`).
+- **Pagefind** (Node, `package.json`) — post-build search index.
+- **Python 3.13 via `uv`** (`pyproject.toml`, `uv.lock`): `requests`, `pyyaml`, `anthropic`, `python-dotenv`; `pytest` for `tests/`.
+- **just** (`justfile`) for commands.
+- **Caddy** in Docker for serving (`Dockerfile`, `redirects.caddy`); GitHub Actions for CI/CD.
 
 ---
 
-## Project Initialization
+## Setup
 
-Prerequisites:
-- Hugo extended v0.128.0+ (`brew install hugo`)
-- Python 3 with pip
-
-Setup:
 ```bash
-cd hugo
-uv pip install --system -r scripts/requirements.txt
+brew install hugo just uv          # plus Node for pagefind
+npm ci                             # installs pagefind
+uv sync                            # python deps (tests, scripts)
+just build                         # hugo --minify + pagefind → public/
+just serve                         # dev server on :1313 (no search index)
+just serve-pagefind                # build + pagefind --serve, to test search
+just test                          # uv run pytest -q
 ```
 
-If content files don't exist yet:
-```bash
-make fetch-pages    # ~30 seconds, fetches 27 editorial pages
-make fetch-items    # ~60 minutes, fetches ~43,939 items from API
-```
+`just build` raises `ulimit -n 65536` because ~43k pages exhaust the default macOS file-descriptor limit.
 
-Static media files need to be symlinked from the wget'd copy:
-```bash
-ln -s ../../wardepartmentpapers.org/files static/files
-```
-
-Build and serve:
-```bash
-make build          # hugo --minify
-make serve          # hugo server on localhost:1313
-```
+No fetch step is needed: all content is committed under `content/`. The Omeka fetch scripts only matter if content must be re-pulled (VPN required).
 
 ---
 
@@ -85,280 +44,133 @@ make serve          # hugo server on localhost:1313
 
 ```
 pwd/
-├── hugo/                          # Hugo project root
-│   ├── hugo.toml                  # Site configuration (incl. taxonomies)
-│   ├── Makefile                   # Build commands
-│   ├── content/
-│   │   ├── _index.md              # Homepage content
-│   │   ├── {slug}.md              # 25 editorial pages (markdown)
-│   │   ├── document/
-│   │   │   └── {id}.md            # 42,880 documents (front matter + transcription body)
-│   │   ├── collection/
-│   │   │   └── {id}.md            # 818 collections
-│   │   ├── repository/
-│   │   │   └── {id}.md            # 241 repositories
-│   │   └── news/
-│   │       └── _index.md          # News index
-│   ├── data/
-│   │   ├── media_map.json         # image_id (reel) → [filenames] lookup
-│   │   └── transcriptions_ai.json # AI transcriptions keyed by omeka_id (Hugo reads this)
-│   ├── layouts/
-│   │   ├── _default/
-│   │   │   ├── baseof.html        # Base template (head, nav, footer partials)
-│   │   │   ├── single.html        # Default single page (editorial content)
-│   │   │   ├── list.html          # Default list page
-│   │   │   ├── taxonomy.html      # Taxonomy list (all terms, e.g. /authors/)
-│   │   │   └── term.html          # Taxonomy term (e.g. /authors/joseph-nourse/)
-│   │   ├── index.html             # Homepage
-│   │   ├── document/
-│   │   │   └── single.html        # Document detail (metadata + transcription tabs)
-│   │   ├── collection/
-│   │   │   └── single.html        # Collection detail + linked documents
-│   │   ├── repository/
-│   │   │   └── single.html        # Repository detail
-│   │   ├── news/
-│   │   │   ├── single.html        # Blog post
-│   │   │   └── list.html          # News index
-│   │   └── partials/
-│   │       ├── head.html           # CSS/JS includes
-│   │       ├── nav.html            # Navigation menu
-│   │       ├── footer.html         # Footer
-│   │       └── item/
-│   │           ├── document.html   # Document metadata partial
-│   │           ├── repository.html
-│   │           ├── collection.html
-│   │           └── shared.html     # Shared notes partial
-│   ├── static/
-│   │   ├── files/                 # Symlink → wardepartmentpapers.org/files/
-│   │   ├── css/style.css          # Main theme CSS
-│   │   ├── css/iconfonts.css      # Font Awesome
-│   │   ├── img/                   # Theme images
-│   │   ├── fonts/                 # Font Awesome font files
-│   │   ├── js/                    # JavaScript (tablesaw, global)
-│   │   └── assets/                # Teaching PDFs
-│   ├── static-media/
-│   │   └── files/
-│   │       └── media_catalog.json # Full media catalog from API
-│   ├── scripts/
-│   │   ├── fetch_pages.py         # Fetch editorial pages from API
-│   │   ├── fetch_items.py         # Fetch items (Document/Collection/Repository); sets num_pages
-│   │   ├── fetch_media.py         # Fetch media catalog/files from API
-│   │   ├── build_media_map.py     # Generate data/media_map.json
-│   │   ├── fetch_num_pages.py     # Backfill bibo:numPages, expand images: lists (API)
-│   │   ├── fix_multipage_images.py# Rebuild images:/num_pages locally from reel structure
-│   │   ├── transcribe.py          # AI transcription via Anthropic SDK + API key (alt path)
-│   │   ├── estimate_transcription_cost.py # Cost estimate (supports --ids-file)
-│   │   ├── build_transcription_dashboard.py # Build data/transcription_dashboard.json
-│   │   ├── build_search_index.py  # Build client-side search index
-│   │   ├── html_to_markdown.py    # Convert editorial HTML to markdown
-│   │   └── requirements.txt       # Python dependencies
-│   ├── _transcription/            # Preferred AI transcription pipeline (claude -p) — see README.md
-│   │   ├── build_image_list.py    # Build images.tsv from frontmatter images: lists
-│   │   ├── transcribe.py          # Run claude -p per doc; usage tracking + --ids-file/--max-tokens
-│   │   ├── prompt.txt             # Transcription system prompt
-│   │   └── transcriptions.json    # Output (manually synced → data/transcriptions_ai.json)
-│   ├── multipage_fix_manifest.json# fix_multipage_images.py change manifest
-│   └── multipage_grown_ids.txt    # Docs whose images: list grew (drives re-transcription)
-├── wardepartmentpapers.org/       # wget'd copy of original site (reference)
-│   ├── files/                     # ~26k media files (large/, original/, square/)
-│   ├── s/home/                    # Original HTML pages
-│   └── news/                      # WordPress blog posts
-├── CLAUDE.md
-├── SPEC.md
-├── AGENTS.md
-└── CHANGELOG.md
+├── hugo.toml                      # Site config: taxonomies, mediaBaseURL, pagination
+├── config/development/hugo.toml   # Dev override (staticDir)
+├── justfile                       # Canonical commands
+├── Dockerfile                     # stagex build: npm ci → hugo → pagefind → Caddy
+├── redirects.caddy                # Legacy Omeka /s/home/... → Hugo path 301 map
+├── .github/workflows/cicd.yml     # Calls chnm/.github shared Hugo workflow
+├── package.json                   # pagefind
+├── pyproject.toml / uv.lock       # Python deps
+├── content/
+│   ├── _index.md                  # Homepage
+│   ├── {slug}.md                  # ~25 editorial pages (type: page)
+│   ├── search.md                  # layout: search
+│   ├── transcription-dashboard.md # type: transcription-dashboard
+│   ├── ai-transcription-methodology.md
+│   ├── document/{omeka_id}.md     # ~42,880 documents (frontmatter + human transcription body)
+│   └── news/{wp_post_id}.md       # 240 WordPress posts (type: news) + _index.md
+├── data/
+│   ├── transcriptions_ai.json     # AI transcriptions keyed by omeka_id (30,479) — read by Hugo
+│   ├── transcription_dashboard.json # Built by scripts/build_transcription_dashboard.py
+│   └── media_map.json             # reel omeka_image_id → ordered filenames (repair scripts only)
+├── layouts/
+│   ├── _default/                  # baseof, single (editorial), list, taxonomy, term, search
+│   ├── document/                  # single.html (viewer + metadata + transcription tabs), list.html
+│   ├── news/                      # single, list, archive
+│   ├── categories/term.html       # news category pages
+│   ├── transcription-dashboard/single.html
+│   ├── 404.html, index.html
+│   └── partials/                  # head (incl. Matomo), nav, footer, news-sidebar, item/{document,browse,shared}
+├── static/
+│   ├── css/, fonts/, img/, assets/ # Theme assets, teaching PDFs
+│   └── js/                        # global.js, tablesaw, search-pagefind.js
+├── scripts/                       # Python: fetch, migrate, repair, dashboard (see below)
+├── _transcription/                # claude -p transcription pipeline (README.md is the runbook)
+├── tests/                         # pytest (72 tests) for repair + transcription scripts
+├── docs/superpowers/              # Design specs/plans for the image fix and usage monitor
+├── multipage_grown_ids.txt, multipage_fix_manifest.json   # fix_multipage_images.py outputs
+├── transcriptions.json            # STALE: April 2026 Opus run (7,190 entries); nothing reads it
+├── CLAUDE.md, AGENTS.md, SPEC.md, README.md, DEVNOTES.md
+└── LICENSE                        # MIT, RRCHNM
 ```
 
 ---
 
 ## Architecture
 
-### Data Pipeline
+### Content model
 
-```
-Omeka S API (wardepartmentpapers.org/api/)
-    │
-    ├── /api/site_pages ──→ fetch_pages.py ──→ content/{slug}.md (markdown body)
-    │
-    ├── /api/items ────────→ fetch_items.py ──→ content/document/{id}.md (front matter + transcription body)
-    │                                        ──→ content/collection/{id}.md
-    │                                        ──→ content/repository/{id}.md
-    │
-    └── /api/media ────────→ fetch_media.py ──→ static-media/files/media_catalog.json
-                                   │
-                                   ▼
-                           build_media_map.py ──→ data/media_map.json
-                                                      │
-                                                      ▼
-                                              Hugo Build (hugo --minify)
-                                                      │
-                                                      ▼
-                                              public/ (static HTML)
-```
-
-**Document content files** have transcription text in the markdown body (`.Content`). Metadata lives in YAML front matter and uses taxonomy lists (authors, recipients, etc.).
-
-**Editorial pages have markdown body content** (converted from Omeka's HTML blocks). Some raw HTML remains, requiring `unsafe = true`.
-
-### Template Dispatch
-
-Each content type has its own layout directory:
-
-| Type | Layout | Partial | Key Fields |
+| Type | Count | Source | Layout |
 |---|---|---|---|
-| Document | `document/single.html` | `item/document.html` | description, date, authors, recipients, sent_from, collections, image_id, doc_types, notable_persons/locations/items, transcription (body) |
-| Collection | `collection/single.html` | `item/collection.html` | repository_name, repository_id, linked documents via `where` query |
-| Repository | `repository/single.html` | `item/repository.html` | name, marc_code, address, phone |
+| Document | ~42,880 | `scripts/fetch_items.py` (Omeka `/api/items`) | `layouts/document/` |
+| Editorial page | ~25 | `scripts/fetch_pages.py` (Omeka `/api/site_pages`), then `html_to_markdown.py` | `layouts/_default/single.html` |
+| News post | 240 | `scripts/fetch_news.py` / `extract_news.py` (wget'd WordPress) | `layouts/news/` |
 
-Cross-references use Hugo taxonomies (authors, recipients, etc.) with links to `/authors/{slug}/`, `/recipients/{slug}/`, etc. Collections link to content pages at `/collection/{id}/`.
+Only Documents are items. Collections and repositories are denormalized into each document's frontmatter (`collections`, `collection_id`, `repositories`) and browsed through taxonomy pages. Image, Name, Microfilm, and Publication items have no pages.
 
-### Document Images (microfilm reel model)
+Document frontmatter keys: `omeka_id`, `title`, `description`, `year`/`month`/`day`, `authors`, `recipients`, `collections`, `collection_id`, `repositories`, `doc_types`, `sent_from`, `document_number`, `omeka_image_id`, `images`, `num_pages`, `notable_persons`, `notable_locations`, `notable_items`, `resource_type`, `created`. Human transcription text is the markdown body.
 
-Documents do not own their images directly. Each document has `omeka_image_id`
-pointing to an Omeka **Image resource** (a microfilm reel); `data/media_map.json`
-maps that reel id to its ordered list of image files. A document's `images:`
-frontmatter list is a **slice** of the reel, `reel_files[page_start-1 :
-page_start-1+num_pages]`. Reels are shared by many documents (dozens to
-hundreds), each starting at a different `page_start`.
+### Taxonomies
 
-Omeka often lacks a per-document `bibo:numPages`, so early migration truncated
-multi-page documents to a single image. `scripts/fix_multipage_images.py`
-repairs this **locally** (no API): single-doc and small reels (≤5 images) get the
-whole reel; large shared reels are sliced `page_start`→next document's
-`page_start`. See `docs/superpowers/specs/2026-07-06-multipage-images-design.md`.
+Defined in `hugo.toml`: `authors`, `recipients`, `collections`, `repositories`, `doc_types` (documents) and `categories` (news). Term pages live at `/{taxonomy}/{slug}/` via `layouts/_default/term.html`. The `notable_*` fields are plain frontmatter lists, shown on document pages but not browsable — they are uncontrolled vocabulary with tens of thousands of single-use terms (see `DEVNOTES.md`).
 
-### AI Transcriptions
+### Images (microfilm reel model)
 
-Two pipelines exist; the **preferred** one is `_transcription/transcribe.py`
-(`claude -p`, billed to a Claude **subscription**). `scripts/transcribe.py` is an
-alternate using the Anthropic **SDK + API key**. Both read a document's `images:`
-list. The `claude -p` pipeline writes `_transcription/transcriptions.json`, which
-must be **manually synced** into `data/transcriptions_ai.json` (the file Hugo
-reads, keyed by `omeka_id`). Full runbook: `_transcription/README.md`.
+Documents share Omeka **Image resources** (microfilm reels) referenced by `omeka_image_id`. Each document's `images:` frontmatter list is the ordered slice of that reel belonging to it. Templates render `{{ site.Params.mediaBaseURL }}/files/{square|large|original}/{filename}` with `mediaBaseURL = https://obj.rrchnm.org/wardepartmentpapers.org`; no media lives in the repo.
 
-### Omeka S API Reference
+The `images:` lists were repaired in several passes (all applied, all local, no API): `fix_multipage_images.py` (reel slicing by neighbor `page_start`), `harvest_viewer_images.py` + `apply_viewer_harvest.py` (ground truth from the legacy site's viewers), and `fix_suffix_viewers.py` (undo inflation from unbounded letterbook viewers). `data/media_map.json` exists for these scripts, not for templates. Specs: `docs/superpowers/specs/`.
 
-Base URL: `https://omeka.wardepartmentpapers.org/api/` (VPN-only). The old
-`https://www.wardepartmentpapers.org/api/` host is no longer live — it 302→404s.
+### Transcriptions
 
-Key endpoints used:
-- `GET /items?per_page=100&page={n}&sort_by=id&sort_order=asc` — paginated items
-- `GET /site_pages?per_page=100` — editorial pages
-- `GET /media?per_page=100&page={n}` — media files (for future download script)
+- **Human**: markdown body of `content/document/{id}.md`.
+- **AI**: `data/transcriptions_ai.json` keyed by `omeka_id`. The run is complete (30,479 documents; 2,512 have both human and AI, 12,341 have neither). Produced by `_transcription/transcribe.py` (`claude -p`, billed to a Claude subscription; runbook `_transcription/README.md`; `run_loop.sh` auto-resumes). Its output `_transcription/transcriptions.json` is merged manually into `data/transcriptions_ai.json`. `scripts/transcribe.py` is an alternate path using the Anthropic SDK and an API key.
+- **Dashboard**: `scripts/build_transcription_dashboard.py` writes `data/transcription_dashboard.json` for `/transcription-dashboard/`. It is not run by the build; re-run it after any transcription sync.
+- Document template shows a tabbed human/AI UI. Methodology is published at `content/ai-transcription-methodology.md`.
 
-Pagination: Total count in `Omeka-S-Total-Results` response header.
+### Search
 
-Resource class IDs: 168=Repository, 169=Collection, 170=Microfilm, 171=Publication, 172=Name, 173=Image, 174=Document.
+Pagefind indexes all of `public/` after the Hugo build (`just build`; the Dockerfile does the same). `layouts/_default/search.html` + `static/js/search-pagefind.js` keep a Documents / Guides & News toggle with `?q=` and `?type=` params.
 
-Item set IDs: 1=Repositories, 2=Collections, 3=Microfilms, 4=Publications, 5=Names, 6=Documents, 7=Images, 8=Transcription Project.
+### URL compatibility
+
+- Documents have **no** Hugo aliases. Legacy Omeka URLs (`/s/home/item/{id}`, `/s/home/page/{slug}`, etc.) are 301'd by the regex `map` in `redirects.caddy`, which the Dockerfile imports into Caddy.
+- Editorial pages still carry `aliases: [/s/home/page/{slug}]` and news posts `aliases: [/news/?p={id}]`.
+- `/files/*` → object storage is redirected by the fronting web server, not by Caddy.
+
+### Deployment
+
+`.github/workflows/cicd.yml` runs the shared `chnm/.github` Hugo build/release/deploy workflow on self-hosted runners for pushes to `main` (https://wardepartmentpapers.org) and `preview` (https://pwd.dev.chnm.gmu.edu). The `Dockerfile` builds the site and Pagefind index, then serves `/srv` with Caddy.
+
+### Omeka S API (source of truth, rarely needed)
+
+Base URL `https://omeka.wardepartmentpapers.org/api/` (VPN only). The old `www.wardepartmentpapers.org/api/` host 302→404s. Endpoints: `/items?per_page=100&page=N&sort_by=id&sort_order=asc`, `/site_pages`, `/media`. Total count in the `Omeka-S-Total-Results` header. Resource class IDs: 168 Repository, 169 Collection, 170 Microfilm, 171 Publication, 172 Name, 173 Image, 174 Document.
 
 ---
 
-## Development Workflow
+## Scripts
 
-### Fetching Content
-
-```bash
-cd hugo
-make fetch-pages     # ~30s, writes 25 editorial page files
-make fetch-items     # ~60min, writes ~43,939 item files (0.1s delay between API pages)
-```
-
-The fetch scripts are idempotent — they overwrite existing files. Network errors auto-retry after 5 seconds.
-
-To generate the media map (required for image display):
-```bash
-python3 scripts/fetch_media.py --catalog-only   # ~15min, writes media_catalog.json
-python3 scripts/build_media_map.py               # instant, writes data/media_map.json
-```
-
-### Fixing multi-page images & AI transcription
-
-```bash
-# Repair truncated images: lists locally (dry-run first). Idempotent.
-python3 scripts/fix_multipage_images.py --dry-run
-python3 scripts/fix_multipage_images.py          # writes multipage_grown_ids.txt
-
-# Re-transcribe docs whose image list grew, via the claude -p pipeline:
-python3 _transcription/build_image_list.py --content-dir content/document
-python3 _transcription/transcribe.py --ids-file multipage_grown_ids.txt --model claude-sonnet-4-6
-```
-
-`fix_multipage_images.py` needs no network. The transcription step bills a Claude
-subscription and is resumable — see `_transcription/README.md` for `--ids-file`
-resume semantics, `--max-tokens` guards, usage logging, and the manual sync of
-`_transcription/transcriptions.json` → `data/transcriptions_ai.json`.
-
-### Building the Site
-
-```bash
-make build           # hugo --minify, outputs to public/
-```
-
-Build produces ~49,000-54,000 pages (content + taxonomy terms + paginator pages + alias redirects).
-
-### Serving Locally
-
-```bash
-make serve           # hugo server --bind 0.0.0.0, live reload
-```
-
-Hugo dev server at `http://localhost:1313/`.
+| Script | Purpose |
+|---|---|
+| `scripts/fetch_pages.py`, `fetch_items.py`, `fetch_media.py`, `fetch_num_pages.py` | Pull from the Omeka API (VPN) |
+| `scripts/fetch_news.py`, `extract_news.py` | Build `content/news/` from the wget'd WordPress site |
+| `scripts/html_to_markdown.py` | Convert editorial HTML bodies to markdown |
+| `scripts/build_media_map.py` | `media_catalog.json` → `data/media_map.json` |
+| `scripts/fix_multipage_images.py`, `fix_empty_images.py`, `fix_image_frontmatter.py`, `harvest_viewer_images.py`, `apply_viewer_harvest.py`, `fix_suffix_viewers.py` | Image-list repairs (all applied) |
+| `scripts/migrate_items.py`, `migrate_images_to_frontmatter.py` | One-time migrations (historical) |
+| `scripts/build_transcription_dashboard.py` | Rebuild `data/transcription_dashboard.json` |
+| `scripts/estimate_transcription_cost.py`, `scripts/transcribe.py` | API-key transcription path |
+| `_transcription/build_image_list.py`, `transcribe.py`, `run_loop.sh` | Preferred `claude -p` transcription pipeline |
 
 ---
 
-## Best Practices & Key Conventions
+## Conventions
 
-### Front Matter Conventions
-- Documents use `type: document`, collections use `type: collection`, repositories use `type: repository`
-- Editorial pages use `type: page`
-- `aliases` array provides old Omeka URL redirects (for Document/Collection/Repository only)
-- `omeka_id` preserves the original Omeka item ID
-- Taxonomy fields (`authors`, `recipients`, `collections`, `doc_types`, `notable_persons`, `notable_locations`, `notable_items`) are lists of strings
-- Documents with transcriptions have the text in the markdown body (`.Content`)
+- Frontmatter edits across the corpus use **minimal-diff regex string surgery**, never `yaml.dump` (it reorders and requotes keys across 43k files).
+- `get_all_literals()` in `fetch_items.py` must `.strip()` values; the API returns multi-valued properties with leading spaces.
+- `markup.goldmark.renderer.unsafe = true` is required — editorial and news bodies contain raw HTML.
+- `baseof.html` renders the CHNM sustainability banner above the header (shared snippet from `chnm/sustainability/_snippets`); `head.html` embeds Matomo (site id 4). Both are intentional.
+- Editorial pages describing the retired Omeka/Scripto features set `outdated: true`; `layouts/_default/single.html` renders a notice aside (12 pages).
+- Templates use `{{ with .Params.field }}` to skip empty fields; taxonomy links use `.GetTerms`.
+- Tests (`uv run pytest`, 72 passing) cover the repair scripts and transcription selection/usage logic. Keep them green.
+- Good test document: 79270 (3 pages, human + AI transcription, all metadata fields).
 
-### CSS/Asset Conventions
-- CSS lives in `static/css/`, not Hugo's `assets/` pipe (no processing needed)
-- Theme images in `static/img/`, media files symlinked in `static/files/`
-- Font Awesome served locally from `static/fonts/`
+## What Not to Do
 
-### Template Conventions
-- `baseof.html` defines `bodyclass` and `main` blocks
-- Homepage sets `bodyclass` to `"page home"` to match original CSS selectors
-- Partials use `{{ with .Params.field }}` pattern to skip empty fields
-- Taxonomy links: `{{ "authors" | relURL }}/{{ . | urlize }}/`
-- Collection content page links: `/collection/{{ .Params.collection_id }}/`
-- Image resolution: `{{ index $.Site.Data.media_map (string .Params.image_id) }}`
+- Do not add server-side functionality; the site must stay purely static.
+- Do not re-introduce per-document Hugo aliases or `notable_*` taxonomies (both were removed for build size).
+- Do not create content pages for Image, Name, Microfilm, Publication, Collection, or Repository items.
+- Do not commit `public/` or `node_modules/`.
 
 ---
-
-## Notes for AI Agents
-
-### Critical Constraints
-- `get_all_literals()` in `fetch_items.py` must `.strip()` values — the Omeka API returns multi-valued properties with leading spaces.
-- Hugo v0.128.0+ removed `paginate` in favor of `[pagination] pagerSize`. Do not use the old syntax.
-- Editorial page HTML requires `markup.goldmark.renderer.unsafe = true` in `hugo.toml`.
-- The `collections` taxonomy (`/collections/{slug}/`) and `collection` content type (`/collection/{id}/`) coexist — different URL patterns, no collision.
-- `data/media_map.json` (~5MB) is loaded into Hugo memory at build time. Keep it as a flat lookup.
-
-### When Modifying Fetch Scripts
-- Changes to `fetch_items.py` require re-running the full fetch (~60 minutes, 793 API pages).
-- For bulk fixes to existing files, prefer a Python script that modifies files in-place over re-fetching.
-- Always test with `hugo` build after changes — YAML errors in content files will fail the build.
-
-### When Modifying Templates
-- Test with a representative item of each resource type. Good test items:
-  - Document: document 79270 (has transcription, notable persons, all fields populated)
-  - Collection: collection 783 (linked documents)
-  - Repository: check low-numbered IDs (< 1000)
-- Taxonomy pages: check `/authors/`, `/authors/{slug}/` for correct document listings.
-
-### What Not to Do
-- Do not add server-side functionality (PHP, Node, etc.) — the site must be purely static
-- Do not remove Hugo aliases on Document/Collection/Repository pages — they preserve old URL compatibility
-- Do not parse wget'd HTML for item data — always use the API (more complete, cleaner)
-- Do not create content pages for Image, Name, Microfilm, or Publication types — these were intentionally removed
-
----
-*Last Updated: 2026-03-11*
-*This document is maintained for AI agent context and onboarding.*
+*Last Updated: 2026-09-01*
