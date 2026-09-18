@@ -441,6 +441,9 @@ def main():
     else:
         done = set() if args.no_resume else load_cache()
         transcriptions = {} if args.no_resume else load_output()
+        # Anything already in the output counts as done, so a plain run is a
+        # gap sweep even when the progress cache is missing or partial.
+        done |= set(transcriptions)
 
     skip = load_skip()
     todo = select_todo(manifest, done, args.max_pages, ids_filter=ids_filter, skip=skip)

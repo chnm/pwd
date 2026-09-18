@@ -43,6 +43,7 @@ def parse_frontmatter(filepath):
         "title": get_field("title"),
         "year": get_field("year"),
         "collection": get_list_first("collections"),
+        "has_images": bool(re.search(r"^images:\s*\n- ", fm_text, re.MULTILINE)),
     }, body
 
 
@@ -59,6 +60,9 @@ def main():
         "ai_only": 0,
         "both": 0,
         "neither": 0,
+        # Subset of "neither" that has scanned images, i.e. could be transcribed
+        # but was not. Should stay at the count of content-blocked docs.
+        "missing": 0,
     }
     collection_stats = {}
 
@@ -82,6 +86,8 @@ def main():
             status = "ai_only"
         else:
             status = "neither"
+            if meta["has_images"]:
+                stats["missing"] += 1
 
         stats["total"] += 1
         stats[status] += 1
@@ -123,7 +129,7 @@ def main():
     print(f"  Both:       {stats['both']}")
     print(f"  Human only: {stats['human_only']}")
     print(f"  AI only:    {stats['ai_only']}")
-    print(f"  Neither:    {stats['neither']}")
+    print(f"  Neither:    {stats['neither']} ({stats['missing']} with images but no transcription)")
     print(f"  Collections: {len(collection_list)}")
 
 

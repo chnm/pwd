@@ -60,7 +60,9 @@ Useful flags:
 
 ## Resume (important)
 
-Resume is tracked by `.transcribe_progress` (a set of completed `omeka_id`s).
+Resume is tracked by `.transcribe_progress` (a set of completed `omeka_id`s)
+plus every key already in `transcriptions.json`, so a plain run only attempts
+docs in the manifest that have no transcription yet (a gap sweep).
 Every successful doc is saved immediately, so an interrupted run loses only the
 single in-flight document.
 
