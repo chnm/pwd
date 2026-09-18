@@ -25,6 +25,7 @@
         <div class="dash-card dash-card-neither">
             <span class="dash-card-number">{{ $stats.neither | lang.FormatNumber 0 }}</span>
             <span class="dash-card-label">No transcription</span>
+            <span class="dash-card-total">{{ $stats.missing | lang.FormatNumber 0 }} with scanned images but no transcription</span>
         </div>
     </div>
 

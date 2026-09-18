@@ -26,7 +26,7 @@ def parse_frontmatter(filepath):
     Uses simple regex parsing to avoid external dependencies (no yaml/yq).
     """
     with open(filepath) as f:
-        content = f.read(8192)  # frontmatter is near the top
+        content = f.read()  # some frontmatter (long notable_* lists) exceeds 8 KB
     if not content.startswith("---"):
         return None
     try:

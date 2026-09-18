@@ -1,3 +1,4 @@
 _transcription/viewer_harvest.jsonl
 node_modules/
 public/
+.DS_Store
