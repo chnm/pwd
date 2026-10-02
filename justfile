@@ -1,5 +1,9 @@
 # Papers of the War Department — build commands
 
+# Local builds have no /files/* proxy (Caddy provides it when deployed), so
+# load images from production.
+export HUGO_PARAMS_MEDIABASEURL := env_var_or_default("HUGO_PARAMS_MEDIABASEURL", "https://wardepartmentpapers.org")
+
 # List available commands
 default:
     @just --list

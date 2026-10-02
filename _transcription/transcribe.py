@@ -49,8 +49,8 @@ FAILURE_LOG = SCRIPT_DIR / "failures.csv"  # structured record of every non-succ
 FAILURE_HEADER = ["timestamp", "omeka_id", "num_pages", "category", "permanent", "detail"]
 DETAIL_MAX = 200
 
-MEDIA_BASE_ORIGINAL = "https://obj.rrchnm.org/wardepartmentpapers.org/files/original"
-MEDIA_BASE_LARGE = "https://obj.rrchnm.org/wardepartmentpapers.org/files/large"
+MEDIA_BASE_ORIGINAL = "https://wardepartmentpapers.org/files/original"
+MEDIA_BASE_LARGE = "https://wardepartmentpapers.org/files/large"
 
 RATE_LIMIT_INDICATORS = (
     "rate limit",

@@ -12,14 +12,9 @@ The original Omeka S site used URLs like `/s/home/item/{id}` and `/s/home/page/{
 
 ## Deployment: Media Files / CDN
 
-Media files (document images) are not part of the Hugo build. This is now implemented (`mediaBaseURL = https://obj.rrchnm.org/wardepartmentpapers.org` in `hugo.toml`):
+Media files (document images) are not part of the Hugo build. They live in the `wardepartmentpapers.org` Garage bucket under `files/{square,large,original}/`. `mediaBaseURL` in `hugo.toml` is empty, so templates emit same-origin `/files/...` URLs, which the site's Caddy proxies to the bucket (configured in the infra `websites-hugo` catalog via `object_storage_paths`). This works on both production and preview.
 
-- Host media files on object storage (MinIO, S3, or similar CDN)
-- Set a site param in `hugo.toml` like `[params] mediaBaseURL = "https://cdn.example.com/pwd-media"`
-- Templates reference images as `{{ site.Params.mediaBaseURL }}/files/large/{{ $filename }}`
-- No media files need to be part of the Hugo build at all
-
-For local development, media can be served separately or symlinked as needed.
+The `justfile` exports `HUGO_PARAMS_MEDIABASEURL=https://wardepartmentpapers.org` because local builds have no `/files/*` proxy. Not `config/development/`: the shared CI workflow builds preview with `--environment development`. The legacy MinIO bucket (`obj.rrchnm.org`) is retired.
 
 ---
 

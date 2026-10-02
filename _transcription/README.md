@@ -28,7 +28,7 @@ subscription** rather than the pay-per-token API.
 
 - The `claude` CLI installed and **logged into the account** whose subscription
   should be billed (`claude` interactive once, or `claude setup-token`).
-- Network access to `https://obj.rrchnm.org/wardepartmentpapers.org/files/original/`
+- Network access to `https://wardepartmentpapers.org/files/original/`
   (images are downloaded per-doc to a temp dir, then deleted).
 - `uv` (the script shebang is `uv run python3`), run from the `pwd/` directory.
 
