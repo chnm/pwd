@@ -2,7 +2,7 @@
 
 FROM stagex/pallet-nodejs AS build-stage
 
-COPY --from=stagex/user-hugo-extended /usr/bin/hugo/hugo_exended /usr/local/bin/hugo
+COPY --from=stagex/user-hugo-extended /usr/bin/hugo /usr/local/bin/hugo
 
 ARG hugobuildargs
 ENV HUGO_BUILD_ARGS=$hugobuildargs
