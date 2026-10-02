@@ -46,7 +46,7 @@ Document frontmatter: `omeka_id`, `title`, `description`, `date`/`year`/`month`/
 
 ### Images (microfilm reel model)
 
-Each document's `images:` list is inline in frontmatter and rendered from `site.Params.mediaBaseURL` (`https://obj.rrchnm.org/wardepartmentpapers.org`) as `/files/{square,large,original}/{filename}`. Nothing under `static/` holds media. `omeka_image_id` points at a shared microfilm reel; `data/media_map.json` maps reel → ordered files and is used only by the repair scripts (`fix_multipage_images.py`, `apply_viewer_harvest.py`, `fix_suffix_viewers.py`), not by templates. Design notes: `docs/superpowers/specs/`.
+Each document's `images:` list is inline in frontmatter and rendered from `site.Params.mediaBaseURL` (empty, so same-origin) as `/files/{square,large,original}/{filename}`; the site's Caddy proxies `/files/*` to the `wardepartmentpapers.org` Garage bucket, and the `justfile` points local builds at production via `HUGO_PARAMS_MEDIABASEURL`. Nothing under `static/` holds media. `omeka_image_id` points at a shared microfilm reel; `data/media_map.json` maps reel → ordered files and is used only by the repair scripts (`fix_multipage_images.py`, `apply_viewer_harvest.py`, `fix_suffix_viewers.py`), not by templates. Design notes: `docs/superpowers/specs/`.
 
 ### Transcriptions
 

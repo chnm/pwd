@@ -3,7 +3,7 @@
 AI transcription of Papers of the War Department document images.
 
 Uses Claude to transcribe handwritten 18th-century document images.
-Images are fetched from MinIO and sent to the API as URLs.
+Images are fetched from the site's /files/* (Garage) and sent to the API as URLs.
 
 Usage:
     # Test a single document (prints to stdout)
@@ -39,7 +39,7 @@ HUGO_DIR = Path(__file__).parent.parent
 CONTENT_DIR = HUGO_DIR / "content" / "document"
 OUTPUT_PATH = HUGO_DIR / "data" / "transcriptions_ai.json"
 
-MEDIA_BASE_URL = "https://obj.rrchnm.org/wardepartmentpapers.org"
+MEDIA_BASE_URL = "https://wardepartmentpapers.org"
 
 SYSTEM_PROMPT = """\
 You are an expert paleographer and archival transcriptionist specializing in \
@@ -180,7 +180,7 @@ def fetch_image_as_base64(url):
 
 
 def build_image_url(filename, size="original"):
-    """Build MinIO URL for an image file."""
+    """Build the public URL for an image file."""
     return f"{MEDIA_BASE_URL}/files/{size}/{filename}"
 
 

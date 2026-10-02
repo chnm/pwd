@@ -107,7 +107,7 @@ Defined in `hugo.toml`: `authors`, `recipients`, `collections`, `repositories`, 
 
 ### Images (microfilm reel model)
 
-Documents share Omeka **Image resources** (microfilm reels) referenced by `omeka_image_id`. Each document's `images:` frontmatter list is the ordered slice of that reel belonging to it. Templates render `{{ site.Params.mediaBaseURL }}/files/{square|large|original}/{filename}` with `mediaBaseURL = https://obj.rrchnm.org/wardepartmentpapers.org`; no media lives in the repo.
+Documents share Omeka **Image resources** (microfilm reels) referenced by `omeka_image_id`. Each document's `images:` frontmatter list is the ordered slice of that reel belonging to it. Templates render `{{ site.Params.mediaBaseURL }}/files/{square|large|original}/{filename}` with `mediaBaseURL = ""` (same-origin; Caddy proxies `/files/*` to the `wardepartmentpapers.org` Garage bucket; the `justfile` sets `HUGO_PARAMS_MEDIABASEURL=https://wardepartmentpapers.org` for local builds); no media lives in the repo.
 
 The `images:` lists were repaired in several passes (all applied, all local, no API): `fix_multipage_images.py` (reel slicing by neighbor `page_start`), `harvest_viewer_images.py` + `apply_viewer_harvest.py` (ground truth from the legacy site's viewers), and `fix_suffix_viewers.py` (undo inflation from unbounded letterbook viewers). `data/media_map.json` exists for these scripts, not for templates. Specs: `docs/superpowers/specs/`.
 

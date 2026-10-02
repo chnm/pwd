@@ -4,7 +4,9 @@ title = "Papers of the War Department"
 staticDir = ["static"]
 
 [params]
-  mediaBaseURL = "https://obj.rrchnm.org/wardepartmentpapers.org"
+  # Empty: images load from same-origin /files/*, which the site's Caddy
+  # proxies to the wardepartmentpapers.org Garage bucket.
+  mediaBaseURL = ""
 
 [taxonomies]
   author = "authors"

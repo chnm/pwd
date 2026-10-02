@@ -22,7 +22,7 @@ from urllib.request import urlopen, Request
 HUGO_DIR = Path(__file__).parent.parent
 CONTENT_DIR = HUGO_DIR / "content" / "document"
 MEDIA_MAP_PATH = HUGO_DIR / "data" / "media_map.json"
-MEDIA_BASE_URL = "https://obj.rrchnm.org/wardepartmentpapers.org"
+MEDIA_BASE_URL = "https://wardepartmentpapers.org"
 
 # Pricing per million tokens (as of 2025)
 # https://docs.anthropic.com/en/docs/about-claude/models
